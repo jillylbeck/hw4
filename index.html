@@ -62,85 +62,37 @@ const width = window.innerWidth;
 const height = window.innerHeight;
 const margin = {top: 20, right: 20, bottom: 20, left: 20};
 
-let genreSet = new Set();
 let books = [];
 
-// Helper to check if an image URL is valid
-function checkImage(url) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    img.src = url;
-  });
+// Spiral layout generator (phyllotaxis)
+function phyllotaxis(radius) {
+  const theta = Math.PI * (3 - Math.sqrt(5)); // golden angle
+  return function(i) {
+    const r = radius * Math.sqrt(i);
+    const a = theta * i;
+    return {
+      x: r * Math.cos(a),
+      y: r * Math.sin(a)
+    };
+  };
 }
 
-loadData();
-
-async function loadData() {
-  const data = await d3.json("data/json_output.json");
-
-  // Limit dataset to the first 1000 books
-  const rawBooks = data.filter(d => d.grid_point && d.isbn13).slice(0, 1000);
-
-  // Keep only books with valid OpenLibrary covers
-  const withCovers = await Promise.all(rawBooks.map(async d => {
-    const url = `https://covers.openlibrary.org/b/isbn/${d.isbn13}-M.jpg`;
-    const hasCover = await checkImage(url);
-    return hasCover ? d : null;
-  }));
-
-  // Final clean data
-  books = withCovers.filter(Boolean);
-
-  // Populate genre dropdown
-  books.forEach(d => genreSet.add(d.genre));
-  genreSet.forEach(g => {
-    const option = document.createElement("option");
-    option.value = g;
-    option.textContent = g;
-    genreSelect.appendChild(option);
-  });
-
-  draw();
-}
-
-function draw() {
-  const filtered = books.filter(d => 
-    (genreSelect.value === "All" || d.genre === genreSelect.value)
-  );
-
-  const xExtent = d3.extent(filtered, d => d.grid_point[0]);
-  const yExtent = d3.extent(filtered, d => d.grid_point[1]);
-
-  const xScale = d3.scaleLinear().domain(xExtent).range([margin.left, width - margin.right]);
-  const yScale = d3.scaleLinear().domain(yExtent).range([height - margin.bottom, margin.top]);
-
+// Filtered rendering
+function draw(filtered) {
   svg.selectAll("*").remove();
 
-  // Add SVG <image> elements
-  const images = svg.selectAll("image")
+  const spiral = phyllotaxis(10);
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  svg.selectAll("image")
     .data(filtered)
     .join("image")
-    .attr("x", d => xScale(d.grid_point[0]) - 15)
-    .attr("y", d => yScale(d.grid_point[1]) - 22)
+    .attr("x", (d, i) => spiral(i).x + centerX - 15)
+    .attr("y", (d, i) => spiral(i).y + centerY - 22)
     .attr("width", 30)
     .attr("height", 44)
     .attr("xlink:href", d => `https://covers.openlibrary.org/b/isbn/${d.isbn13}-M.jpg`)
-    .attr("data-fallback", "https://via.placeholder.com/30x44/555/fff?text=No+Cover");
-
-  // Fix broken images using actual <img> testing
-  images.each(function(d) {
-    const img = new Image();
-    const el = d3.select(this);
-    const src = el.attr("xlink:href");
-    img.onload = () => {}; // success, do nothing
-    img.onerror = () => el.attr("xlink:href", el.attr("data-fallback"));
-    img.src = src;
-  });
-
-  // Tooltip behavior
-  images
     .on("mouseover", (event, d) => {
       tooltip.style("display", "block")
         .html(`
@@ -158,8 +110,53 @@ function draw() {
     .on("mouseout", () => tooltip.style("display", "none"));
 }
 
-genreSelect.addEventListener("change", draw);
+// Dropdown filter interaction
+genreSelect.addEventListener("change", () => {
+  const genre = genreSelect.value;
+  const filtered = genre === "All" ? books : books.filter(b => b.genre === genre);
+  draw(filtered);
+});
+
+// Check if cover exists
+function checkImage(url) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+
+// Load and clean dataset
+async function loadData() {
+  const data = await d3.json("data/json_output.json");
+
+  // Limit and clean
+  const rawBooks = data.filter(d => d.grid_point && d.isbn13).slice(0, 2000);
+  const withCovers = await Promise.all(rawBooks.map(async d => {
+    const url = `https://covers.openlibrary.org/b/isbn/${d.isbn13}-M.jpg`;
+    const hasCover = await checkImage(url);
+    return hasCover ? d : null;
+  }));
+
+  books = withCovers.filter(Boolean);
+
+  // Populate filter
+  const genres = Array.from(new Set(books.map(d => d.genre))).sort();
+  genreSelect.innerHTML = '<option value="All">All</option>';
+  genres.forEach(g => {
+    const option = document.createElement("option");
+    option.value = g;
+    option.textContent = g;
+    genreSelect.appendChild(option);
+  });
+
+  draw(books);
+}
+
+loadData();
 </script>
+
 </body>
 </html>
 
