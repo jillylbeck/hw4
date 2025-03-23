@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Book Grid Explorer</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #1a1a1a;
+      color: #fff;
+    }
+    svg {
+      width: 100vw;
+      height: 100vh;
+    }
+    .tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.8);
+      padding: 10px;
+      color: white;
+      border-radius: 6px;
+      pointer-events: none;
+      font-size: 13px;
+      max-width: 250px;
+      display: none;
+    }
+    #controls {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      padding: 10px;
+      border-radius: 8px;
+      z-index: 10;
+    }
+    select {
+      margin-top: 5px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div id="controls">
+  <label for="genreSelect">Filter by Genre:</label>
+  <select id="genreSelect">
+    <option value="All">All</option>
+  </select>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+<svg id="chart"></svg>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+const svg = d3.select("#chart");
+const tooltip = d3.select("#tooltip");
+const genreSelect = document.getElementById("genreSelect");
+
+const width = window.innerWidth;
+const height = window.innerHeight;
+const margin = {top: 20, right: 20, bottom: 20, left: 20};
+
+let genreSet = new Set();
+let books = [];
+
+// Helper to check if an image URL is valid
+function checkImage(url) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+
+loadData();
+
+async function loadData() {
+  const data = await d3.json("data/json_output.json");
+
+  // Limit dataset to the first 1000 books
+  const rawBooks = data.filter(d => d.grid_point && d.isbn13).slice(0, 1000);
+
+  // Keep only books with valid OpenLibrary covers
+  const withCovers = await Promise.all(rawBooks.map(async d => {
+    const url = `https://covers.openlibrary.org/b/isbn/${d.isbn13}-M.jpg`;
+    const hasCover = await checkImage(url);
+    return hasCover ? d : null;
+  }));
+
+  // Final clean data
+  books = withCovers.filter(Boolean);
+
+  // Populate genre dropdown
+  books.forEach(d => genreSet.add(d.genre));
+  genreSet.forEach(g => {
+    const option = document.createElement("option");
+    option.value = g;
+    option.textContent = g;
+    genreSelect.appendChild(option);
+  });
+
+  draw();
+}
+
+function draw() {
+  const filtered = books.filter(d => 
+    (genreSelect.value === "All" || d.genre === genreSelect.value)
+  );
+
+  const xExtent = d3.extent(filtered, d => d.grid_point[0]);
+  const yExtent = d3.extent(filtered, d => d.grid_point[1]);
+
+  const xScale = d3.scaleLinear().domain(xExtent).range([margin.left, width - margin.right]);
+  const yScale = d3.scaleLinear().domain(yExtent).range([height - margin.bottom, margin.top]);
+
+  svg.selectAll("*").remove();
+
+  // Add SVG <image> elements
+  const images = svg.selectAll("image")
+    .data(filtered)
+    .join("image")
+    .attr("x", d => xScale(d.grid_point[0]) - 15)
+    .attr("y", d => yScale(d.grid_point[1]) - 22)
+    .attr("width", 30)
+    .attr("height", 44)
+    .attr("xlink:href", d => `https://covers.openlibrary.org/b/isbn/${d.isbn13}-M.jpg`)
+    .attr("data-fallback", "https://via.placeholder.com/30x44/555/fff?text=No+Cover");
+
+  // Fix broken images using actual <img> testing
+  images.each(function(d) {
+    const img = new Image();
+    const el = d3.select(this);
+    const src = el.attr("xlink:href");
+    img.onload = () => {}; // success, do nothing
+    img.onerror = () => el.attr("xlink:href", el.attr("data-fallback"));
+    img.src = src;
+  });
+
+  // Tooltip behavior
+  images
+    .on("mouseover", (event, d) => {
+      tooltip.style("display", "block")
+        .html(`
+          <strong>${d.title}</strong><br/>
+          Author: ${d.author}<br/>
+          Genre: ${d.genre}<br/>
+          Labels: ${d.labels.join(", ")}
+        `);
+    })
+    .on("mousemove", event => {
+      tooltip
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY + 10) + "px");
+    })
+    .on("mouseout", () => tooltip.style("display", "none"));
+}
+
+genreSelect.addEventListener("change", draw);
+</script>
+</body>
+</html>
+
+
