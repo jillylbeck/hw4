@@ -79,6 +79,32 @@ function phyllotaxis(radius) {
 
 // Filtered rendering
 function draw(filtered) {
+
+  function highlightCluster(centerBook, bookList, clusterSize = 6) {
+  const centerIndex = bookList.findIndex(b => b === centerBook);
+  const cluster = [];
+
+  for (let i = -Math.floor(clusterSize / 2); i <= Math.floor(clusterSize / 2); i++) {
+    const idx = centerIndex + i;
+    if (idx >= 0 && idx < bookList.length && bookList[idx] !== centerBook) {
+      cluster.push(bookList[idx]);
+    }
+  }
+
+  // Highlight the selected and cluster
+  svg.selectAll("image")
+    .attr("opacity", d => (d === centerBook || cluster.includes(d)) ? 1 : 0.1)
+    .attr("stroke", d => (d === centerBook) ? "gold" : cluster.includes(d) ? "lightblue" : null)
+    .attr("stroke-width", d => (d === centerBook || cluster.includes(d)) ? 2 : 0);
+
+  // Optional: bring highlighted books to front
+  svg.selectAll("image").sort((a, b) => {
+    if (a === centerBook) return 1;
+    if (cluster.includes(a)) return 1;
+    return -1;
+  });
+}
+
   svg.selectAll("*").remove();
 
   const spiral = phyllotaxis(10);
@@ -107,7 +133,10 @@ function draw(filtered) {
         .style("left", (event.pageX + 10) + "px")
         .style("top", (event.pageY + 10) + "px");
     })
-    .on("mouseout", () => tooltip.style("display", "none"));
+    .on("mouseout", () => tooltip.style("display", "none"))
+    .on("click", (event, d) => {
+    highlightCluster(d, filtered);
+  });
 }
 
 // Dropdown filter interaction
@@ -116,6 +145,8 @@ genreSelect.addEventListener("change", () => {
   const filtered = genre === "All" ? books : books.filter(b => b.genre === genre);
   draw(filtered);
 });
+
+
 
 // Check if cover exists
 function checkImage(url) {
