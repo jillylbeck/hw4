@@ -12,7 +12,8 @@
     }
     svg {
       width: 100vw;
-      height: 100vh;
+      height: 150vh;
+      overflow: visible;
     }
     .tooltip {
       position: absolute;
@@ -33,20 +34,67 @@
       padding: 10px;
       border-radius: 8px;
       z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
-    select {
-      margin-top: 5px;
-      width: 100%;
+    .filter-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .filter-pill {
+      background-color: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 12px;
+    }
+    .filter-pill.active {
+      background-color: #4CAF50;
+      border-color: #4CAF50;
+    }
+    .filter-label {
+      margin-bottom: 5px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
 
 <div id="controls">
-  <label for="genreSelect">Filter by Genre:</label>
-  <select id="genreSelect">
-    <option value="All">All</option>
-  </select>
+  <div>
+    <div class="filter-label">Filter by Genre:</div>
+    <div id="genreFilter" class="filter-section">
+      <div class="filter-pill" data-value="All">All</div>
+      <div class="filter-pill" data-value="adventure">Adventure</div>
+      <div class="filter-pill" data-value="chick-lit">Chick Lit</div>
+      <div class="filter-pill" data-value="crime">Crime</div>
+      <div class="filter-pill" data-value="drama">Drama</div>
+      <div class="filter-pill" data-value="fantasy">Fantasy</div>
+      <div class="filter-pill" data-value="historical">Historical</div>
+      <div class="filter-pill" data-value="horror">Horror</div>
+      <div class="filter-pill" data-value="humor">Humor</div>
+      <div class="filter-pill" data-value="literature">Literature</div>
+      <div class="filter-pill" data-value="mystery">Mystery</div>
+      <div class="filter-pill" data-value="romance">Romance</div>
+      <div class="filter-pill" data-value="science-fiction">Science Fiction</div>
+      <div class="filter-pill" data-value="thriller">Thriller</div>
+      <div class="filter-pill" data-value="young-adult">Young Adult</div>
+    </div>
+  </div>
+  
+  <div>
+    <div class="filter-label">Filter by Author Gender:</div>
+    <div id="genderFilter" class="filter-section">
+      <div class="filter-pill" data-value="All">All</div>
+      <div class="filter-pill" data-value="male">Male</div>
+      <div class="filter-pill" data-value="female">Female</div>
+    </div>
+  </div>
 </div>
 
 <div class="tooltip" id="tooltip"></div>
@@ -56,31 +104,48 @@
 <script>
 const svg = d3.select("#chart");
 const tooltip = d3.select("#tooltip");
-const genreSelect = document.getElementById("genreSelect");
+const genreFilter = document.getElementById("genreFilter");
+const genderFilter = document.getElementById("genderFilter");
 
 const width = window.innerWidth;
-const height = window.innerHeight;
+const height = window.innerHeight * 1.5;
 const margin = {top: 20, right: 20, bottom: 20, left: 20};
 
 let books = [];
+let currentGenreFilter = "All";
+let currentGenderFilter = "All";
 
-// Spiral layout generator (phyllotaxis)
-function phyllotaxis(radius) {
-  const theta = Math.PI * (3 - Math.sqrt(5)); // golden angle
-  return function(i) {
-    const r = radius * Math.sqrt(i);
-    const a = theta * i;
-    return {
-      x: r * Math.cos(a),
-      y: r * Math.sin(a)
-    };
-  };
-}
+// click event listners
+genreFilter.addEventListener("click", (event) => {
+  if (event.target.classList.contains('filter-pill')) {
+    genreFilter.querySelectorAll('.filter-pill').forEach(pill => 
+      pill.classList.remove('active')
+    );
+    
+    event.target.classList.add('active');
+    
+    currentGenreFilter = event.target.dataset.value;
+    
+    filterBooks();
+  }
+});
 
-// Filtered rendering
-function draw(filtered) {
+// click event listeners
+genderFilter.addEventListener("click", (event) => {
+  if (event.target.classList.contains('filter-pill')) {
+    genderFilter.querySelectorAll('.filter-pill').forEach(pill => 
+      pill.classList.remove('active')
+    );
+    
+    event.target.classList.add('active');
+    
+    currentGenderFilter = event.target.dataset.value;
+    
+    filterBooks();
+  }
+});
 
-  function highlightCluster(centerBook, bookList, clusterSize = 6) {
+function highlightCluster(centerBook, bookList, clusterSize = 6) {
   const centerIndex = bookList.findIndex(b => b === centerBook);
   const cluster = [];
 
@@ -91,13 +156,11 @@ function draw(filtered) {
     }
   }
 
-  // Highlight the selected and cluster
   svg.selectAll("image")
     .attr("opacity", d => (d === centerBook || cluster.includes(d)) ? 1 : 0.1)
     .attr("stroke", d => (d === centerBook) ? "gold" : cluster.includes(d) ? "lightblue" : null)
     .attr("stroke-width", d => (d === centerBook || cluster.includes(d)) ? 2 : 0);
 
-  // Optional: bring highlighted books to front
   svg.selectAll("image").sort((a, b) => {
     if (a === centerBook) return 1;
     if (cluster.includes(a)) return 1;
@@ -105,19 +168,26 @@ function draw(filtered) {
   });
 }
 
+function draw(filtered) {
   svg.selectAll("*").remove();
 
-  const spiral = phyllotaxis(10);
-  const centerX = width / 2;
-  const centerY = height / 2;
+  const gridSize = 80;
+  const padding = 10;
+  const columns = Math.floor(width / (gridSize + padding));
 
   svg.selectAll("image")
     .data(filtered)
     .join("image")
-    .attr("x", (d, i) => spiral(i).x + centerX - 15)
-    .attr("y", (d, i) => spiral(i).y + centerY - 22)
-    .attr("width", 30)
-    .attr("height", 44)
+    .attr("x", (d, i) => {
+      const col = i % columns;
+      return col * (gridSize + padding) + padding;
+    })
+    .attr("y", (d, i) => {
+      const row = Math.floor(i / columns);
+      return row * (gridSize + padding) + padding;
+    })
+    .attr("width", gridSize)
+    .attr("height", gridSize * 1.5)
     .attr("xlink:href", d => `https://covers.openlibrary.org/b/isbn/${d.isbn13}-M.jpg`)
     .on("mouseover", (event, d) => {
       tooltip.style("display", "block")
@@ -135,20 +205,19 @@ function draw(filtered) {
     })
     .on("mouseout", () => tooltip.style("display", "none"))
     .on("click", (event, d) => {
-    highlightCluster(d, filtered);
-  });
+      highlightCluster(d, filtered);
+    });
 }
 
-// Dropdown filter interaction
-genreSelect.addEventListener("change", () => {
-  const genre = genreSelect.value;
-  const filtered = genre === "All" ? books : books.filter(b => b.genre === genre);
+function filterBooks() {
+  const filtered = books.filter(b => 
+    (currentGenreFilter === "All" || b.genre === currentGenreFilter) &&
+    (currentGenderFilter === "All" || b.gender === currentGenderFilter)
+  );
+
   draw(filtered);
-});
+}
 
-
-
-// Check if cover exists
 function checkImage(url) {
   return new Promise(resolve => {
     const img = new Image();
@@ -158,11 +227,9 @@ function checkImage(url) {
   });
 }
 
-// Load and clean dataset
 async function loadData() {
   const data = await d3.json("data/json_output.json");
 
-  // Limit and clean
   const rawBooks = data.filter(d => d.grid_point && d.isbn13).slice(0, 2000);
   const withCovers = await Promise.all(rawBooks.map(async d => {
     const url = `https://covers.openlibrary.org/b/isbn/${d.isbn13}-M.jpg`;
@@ -171,17 +238,10 @@ async function loadData() {
   }));
 
   books = withCovers.filter(Boolean);
-
-  // Populate filter
-  const genres = Array.from(new Set(books.map(d => d.genre))).sort();
-  genreSelect.innerHTML = '<option value="All">All</option>';
-  genres.forEach(g => {
-    const option = document.createElement("option");
-    option.value = g;
-    option.textContent = g;
-    genreSelect.appendChild(option);
-  });
-
+  
+  genreFilter.querySelector('.filter-pill[data-value="All"]').classList.add('active');
+  genderFilter.querySelector('.filter-pill[data-value="All"]').classList.add('active');
+  
   draw(books);
 }
 
@@ -190,5 +250,3 @@ loadData();
 
 </body>
 </html>
-
-
