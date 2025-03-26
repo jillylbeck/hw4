@@ -1,182 +1,453 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Book Grid Explorer</title>
+  <meta charset="UTF-8" />
+  <title>Top-Selling Book Covers Explorer</title>
+
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap"
+    rel="stylesheet"
+  />
+
   <style>
-    body {
+    /* global styles */
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
       margin: 0;
-      font-family: sans-serif;
-      background-color: #1a1a1a;
+      padding: 0;
+      background-color: #121212;
       color: #fff;
+      font-family: 'Inter', sans-serif;
+      scroll-behavior: smooth;
     }
-    svg {
-      width: 100vw;
-      height: 150vh;
-      overflow: visible;
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+      position: relative;
     }
-    .tooltip {
-      position: absolute;
-      background: rgba(0,0,0,0.8);
-      padding: 10px;
-      color: white;
-      border-radius: 6px;
-      pointer-events: none;
-      font-size: 13px;
-      max-width: 250px;
-      display: none;
+
+    /* header + title */
+    header {
+      text-align: center;
+      padding: 40px 0 20px;
     }
+    header h1 {
+      margin: 0;
+      font-weight: 600;
+      font-size: 32px;
+      color: #fafafa;
+    }
+    header p {
+      margin: 10px 0 0;
+      color: #bbb;
+      font-size: 14px;
+    }
+
+    /* filter bar & search */
     #controls {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.7);
-      padding: 10px;
-      border-radius: 8px;
-      z-index: 10;
       display: flex;
-      flex-direction: column;
-      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 20px;
+      align-items: center;
+    }
+    .filter-group {
+      background: #1e1e1e;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .filter-label {
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 14px;
     }
     .filter-section {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
+      gap: 10px;
     }
     .filter-pill {
-      background-color: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.3);
-      color: white;
-      padding: 5px 10px;
+      background-color: #444;
+      border: 1px solid #666;
+      color: #fff;
+      padding: 6px 12px;
       border-radius: 20px;
       cursor: pointer;
-      transition: all 0.3s ease;
-      font-size: 12px;
+      transition: background-color 0.2s, transform 0.2s;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .filter-pill:hover {
+      background-color: #666;
+      transform: translateY(-2px);
     }
     .filter-pill.active {
-      background-color: #4CAF50;
-      border-color: #4CAF50;
+      background-color: #00BFA5;
+      border-color: #00BFA5;
     }
-    .filter-label {
-      margin-bottom: 5px;
-      font-weight: bold;
+
+    /* author search bar*/
+    #authorSearch {
+      width: 200px;
+      padding: 8px 12px;
+      border-radius: 20px;
+      border: 1px solid #555;
+      background-color: #2a2a2a;
+      color: #fff;
+      outline: none;
+      font-size: 13px;
+    }
+    #authorSearch::placeholder {
+      color: #999;
+    }
+
+    /* autocomplete feature for authors in list*/
+    #autocompleteList {
+      position: absolute;
+      background: #2a2a2a;
+      border: 1px solid #555;
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      width: 220px; 
+      display: none;
+      z-index: 20000;
+      margin-top: 2px;
+    }
+    .autocomplete-item {
+      padding: 8px 12px;
+      font-size: 13px;
+      border-bottom: 1px solid #444;
+      cursor: pointer;
+      color: #fff;
+    }
+    .autocomplete-item:hover {
+      background: #444;
+    }
+    .autocomplete-item:last-child {
+      border-bottom: none;
+    }
+
+    #chartWrapper {
+      position: relative;
+      margin-top: 30px;
+      min-height: 50vh;
+    }
+    svg {
+      width: 100%;
+    }
+    image {
+      cursor: pointer;
+    }
+
+    .tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.9);
+      padding: 10px;
+      color: #fff;
+      border-radius: 6px;
+      pointer-events: none;
+      font-size: 13px;
+      max-width: 220px;
+      display: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      z-index: 9999;
+    }
+
+    .modal-overlay {         /* this is for poster pop out when someone clicks*/
+      position: fixed;
+      top: 0; 
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+    }
+    .modal-content {
+      background: #2a2a2a;
+      border-radius: 8px;
+      padding: 20px;
+      width: 340px;
+      max-width: 90vw;
+      text-align: center;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+      position: relative;
+    }
+    .modal-content h2 {
+      margin-top: 10px;
+      font-size: 18px;
+    }
+    .modal-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #555;
+      border: none;
+      color: #fff;
+      border-radius: 50%;
+      width: 25px;
+      height: 25px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 25px;
+      text-align: center;
+    }
+    .modal-cover-img {
+      margin-bottom: 10px;
+      border-radius: 4px;
+    }
+
+    #noResults {
+      display: none;
+      text-align: center;
+      margin-top: 50px;
+      font-size: 16px;
+      color: #ccc;
+    }
+
+    #preloadStatus {     /* giving message for preloading (thought to add so they know to wait? feel free to remove)*/
+      text-align: center;
+      margin-top: 10px;
+      font-size: 14px;
+      color: #bbb;
+      display: none;
+    }
+
+    /* Pagination Buttons */
+    #pagination {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+      align-items: center;
+    }
+    .page-btn {
+      background-color: #444;
+      border: 1px solid #666;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1.4;
+      transition: background-color 0.2s, transform 0.2s;
+    }
+    .page-btn:hover {
+      background-color: #666;
+      transform: translateY(-2px);
+    }
+    .page-btn:disabled {
+      background-color: #333;
+      color: #777;
+      cursor: not-allowed;
+      transform: none;
+    }
+    #pageIndicator {
+      font-size: 13px;
+      color: #ccc;
     }
   </style>
 </head>
 <body>
 
-<div id="controls">
-  <div>
-    <div class="filter-label">Filter by Genre:</div>
-    <div id="genreFilter" class="filter-section">
-      <div class="filter-pill" data-value="All">All</div>
-      <div class="filter-pill" data-value="adventure">Adventure</div>
-      <div class="filter-pill" data-value="chick-lit">Chick Lit</div>
-      <div class="filter-pill" data-value="crime">Crime</div>
-      <div class="filter-pill" data-value="drama">Drama</div>
-      <div class="filter-pill" data-value="fantasy">Fantasy</div>
-      <div class="filter-pill" data-value="historical">Historical</div>
-      <div class="filter-pill" data-value="horror">Horror</div>
-      <div class="filter-pill" data-value="humor">Humor</div>
-      <div class="filter-pill" data-value="literature">Literature</div>
-      <div class="filter-pill" data-value="mystery">Mystery</div>
-      <div class="filter-pill" data-value="romance">Romance</div>
-      <div class="filter-pill" data-value="science-fiction">Science Fiction</div>
-      <div class="filter-pill" data-value="thriller">Thriller</div>
-      <div class="filter-pill" data-value="young-adult">Young Adult</div>
+<div class="container">
+  <header>
+    <h1>Top-Selling Book Covers Explorer</h1>
+  </header>
+
+  <!-- Controls -->
+  <div id="controls">
+    <div class="filter-group">
+      <div class="filter-label">Filter by Genre:</div>
+      <div id="genreFilter" class="filter-section">
+        <div class="filter-pill" data-value="All">All</div>
+        <div class="filter-pill" data-value="adventure">Adventure</div>
+        <div class="filter-pill" data-value="crime">Crime</div>
+        <div class="filter-pill" data-value="drama">Drama</div>
+        <div class="filter-pill" data-value="fantasy">Fantasy</div>
+        <div class="filter-pill" data-value="historical">Historical</div>
+        <div class="filter-pill" data-value="horror">Horror</div>
+        <div class="filter-pill" data-value="humor">Humor</div>
+        <div class="filter-pill" data-value="literature">Literature</div>
+        <div class="filter-pill" data-value="mystery">Mystery</div>
+        <div class="filter-pill" data-value="romance">Romance</div>
+        <div class="filter-pill" data-value="science-fiction">Sci-Fi</div>
+        <div class="filter-pill" data-value="thriller">Thriller</div>
+        <div class="filter-pill" data-value="young-adult">Young Adult</div>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-label">Filter by Author Gender:</div>
+      <div id="genderFilter" class="filter-section">
+        <div class="filter-pill" data-value="All">All</div>
+        <div class="filter-pill" data-value="male">Male</div>
+        <div class="filter-pill" data-value="female">Female</div>
+      </div>
+    </div>
+
+    <div class="filter-group" style="position: relative;">
+      <div class="filter-label">Author Search:</div>
+      <input type="text" id="authorSearch" placeholder="Type author name..." />
+      <div id="autocompleteList"></div>
     </div>
   </div>
-  
-  <div>
-    <div class="filter-label">Filter by Author Gender:</div>
-    <div id="genderFilter" class="filter-section">
-      <div class="filter-pill" data-value="All">All</div>
-      <div class="filter-pill" data-value="male">Male</div>
-      <div class="filter-pill" data-value="female">Female</div>
-    </div>
+
+  <div id="preloadStatus"></div>
+
+  <div id="chartWrapper">
+    <svg id="chart"></svg>
+    <div id="noResults">No books match your filters.</div>
+  </div>
+
+  <div id="pagination">
+    <button class="page-btn" id="prevPageBtn">&laquo; Prev</button>
+    <span id="pageIndicator"></span>
+    <button class="page-btn" id="nextPageBtn">Next &raquo;</button>
   </div>
 </div>
 
 <div class="tooltip" id="tooltip"></div>
-<svg id="chart"></svg>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-content">
+    <button class="modal-close" id="modalClose">X</button>
+    <img id="modalCover" class="modal-cover-img" src="" alt="" width="130" />
+    <h2 id="modalTitle">Book Title</h2>
+    <div id="modalAuthor">Author: ???</div>
+    <div id="modalGenre">Genre: ???</div>
+    <div id="modalLabels">Labels: ???</div>
+  </div>
+</div>
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
-const svg = d3.select("#chart");
-const tooltip = d3.select("#tooltip");
-const genreFilter = document.getElementById("genreFilter");
-const genderFilter = document.getElementById("genderFilter");
 
-const width = window.innerWidth;
-const height = window.innerHeight * 1.5;
-const margin = {top: 20, right: 20, bottom: 20, left: 20};
+/* ===============================
+  Preloading (trying concurrency to speed data loading up but idk)
+=============================== */
 
-let books = [];
-let currentGenreFilter = "All";
-let currentGenderFilter = "All";
+async function preloadCovers(books, concurrency=10) {
+  const preloadStatus = document.getElementById("preloadStatus");
+  let index = 0;
+  let activeCount = 0;
+  const total = books.length;
+  let loadedSoFar = 0;
 
-// click event listners
-genreFilter.addEventListener("click", (event) => {
-  if (event.target.classList.contains('filter-pill')) {
-    genreFilter.querySelectorAll('.filter-pill').forEach(pill => 
-      pill.classList.remove('active')
-    );
-    
-    event.target.classList.add('active');
-    
-    currentGenreFilter = event.target.dataset.value;
-    
-    filterBooks();
+  function loadOneCover(book) {
+    return new Promise(resolve => {
+      const url = `https://covers.openlibrary.org/b/isbn/${book.isbn13}-M.jpg`;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        book.coverURL = url;
+        resolve(true);
+      };
+      img.onerror = () => {
+        book.coverURL = null; 
+        resolve(false);
+      };
+      img.src = url;
+    });
   }
-});
 
-// click event listeners
-genderFilter.addEventListener("click", (event) => {
-  if (event.target.classList.contains('filter-pill')) {
-    genderFilter.querySelectorAll('.filter-pill').forEach(pill => 
-      pill.classList.remove('active')
-    );
-    
-    event.target.classList.add('active');
-    
-    currentGenderFilter = event.target.dataset.value;
-    
-    filterBooks();
-  }
-});
+  preloadStatus.style.display = "block";
+  preloadStatus.textContent = `Loading covers: 0 / ${total}`;
 
-function highlightCluster(centerBook, bookList, clusterSize = 6) {
-  const centerIndex = bookList.findIndex(b => b === centerBook);
-  const cluster = [];
-
-  for (let i = -Math.floor(clusterSize / 2); i <= Math.floor(clusterSize / 2); i++) {
-    const idx = centerIndex + i;
-    if (idx >= 0 && idx < bookList.length && bookList[idx] !== centerBook) {
-      cluster.push(bookList[idx]);
+  return new Promise(overallResolve => {
+    function next() {
+      if (index >= total && activeCount === 0) {
+        preloadStatus.style.display = "none";
+        overallResolve();
+        return;
+      }
+      while (activeCount < concurrency && index < total) {
+        activeCount++;
+        const book = books[index++];
+        loadOneCover(book).then(() => {
+          activeCount--;
+          loadedSoFar++;
+          preloadStatus.textContent = `Loading covers: ${loadedSoFar} / ${total}`;
+          next();
+        });
+      }
     }
-  }
-
-  svg.selectAll("image")
-    .attr("opacity", d => (d === centerBook || cluster.includes(d)) ? 1 : 0.1)
-    .attr("stroke", d => (d === centerBook) ? "gold" : cluster.includes(d) ? "lightblue" : null)
-    .attr("stroke-width", d => (d === centerBook || cluster.includes(d)) ? 2 : 0);
-
-  svg.selectAll("image").sort((a, b) => {
-    if (a === centerBook) return 1;
-    if (cluster.includes(a)) return 1;
-    return -1;
+    next();
   });
 }
 
-function draw(filtered) {
-  svg.selectAll("*").remove();
+/* ===============================
+  Visualization Code - details of how page looks
+=============================== */
+const svg = d3.select("#chart");
+const tooltip = d3.select("#tooltip");
+const modalOverlay = document.getElementById("modalOverlay");
+const modalClose = document.getElementById("modalClose");
+const modalCover = document.getElementById("modalCover");
+const modalTitle = document.getElementById("modalTitle");
+const modalAuthor = document.getElementById("modalAuthor");
+const modalGenre = document.getElementById("modalGenre");
+const modalLabels = document.getElementById("modalLabels");
+modalClose.addEventListener("click", () => { modalOverlay.style.display = "none"; });
+modalOverlay.addEventListener("click", evt => {
+  if (evt.target === modalOverlay) modalOverlay.style.display = "none";
+});
 
-  const gridSize = 80;
-  const padding = 10;
-  const columns = Math.floor(width / (gridSize + padding));
+const noResults = document.getElementById("noResults");
+
+const genreFilter = document.getElementById("genreFilter");
+const genderFilter = document.getElementById("genderFilter");
+const authorSearch = document.getElementById("authorSearch");
+const autocompleteList = document.getElementById("autocompleteList");
+
+const prevPageBtn = document.getElementById("prevPageBtn");
+const nextPageBtn = document.getElementById("nextPageBtn");
+const pageIndicator = document.getElementById("pageIndicator");
+const PAGE_SIZE = 400; 
+
+let pageIndex = 0;
+let totalPages = 1;
+let books = [];
+let currentGenreFilter = "All";
+let currentGenderFilter = "All";
+let currentAuthorQuery = "";
+
+const CONCURRENCY_LIMIT = 10;
+
+function openModal(book) {
+  modalCover.src = book.coverURL ? book.coverURL : `https://covers.openlibrary.org/b/isbn/${book.isbn13}-M.jpg`;
+  modalTitle.textContent = book.title || "Unknown Title";
+  modalAuthor.textContent = "Author: " + (book.author || "???");
+  modalGenre.textContent = "Genre: " + (book.genre || "???");
+  modalLabels.textContent = "Labels: " + (book.labels ? book.labels.join(", ") : "");
+  modalOverlay.style.display = "flex";
+}
+
+function draw(bookSubset) {
+  svg.selectAll("*").remove();
+  if (!bookSubset.length) {
+    noResults.style.display = "block";
+    return;
+  }
+  noResults.style.display = "none";
+
+  const gridSize = 120;
+  const padding = 15;
+  const totalWidth = svg.node().clientWidth;
+  const columns = Math.floor(totalWidth / (gridSize + padding));
+  svg.attr("height", Math.ceil(bookSubset.length / columns) * (gridSize + padding * 2));
 
   svg.selectAll("image")
-    .data(filtered)
+    .data(bookSubset)
     .join("image")
     .attr("x", (d, i) => {
       const col = i % columns;
@@ -184,11 +455,11 @@ function draw(filtered) {
     })
     .attr("y", (d, i) => {
       const row = Math.floor(i / columns);
-      return row * (gridSize + padding) + padding;
+      return row * (gridSize + padding * 2) + padding;
     })
     .attr("width", gridSize)
     .attr("height", gridSize * 1.5)
-    .attr("xlink:href", d => `https://covers.openlibrary.org/b/isbn/${d.isbn13}-M.jpg`)
+    .attr("xlink:href", d => d.coverURL ? d.coverURL : `https://covers.openlibrary.org/b/isbn/${d.isbn13}-M.jpg`)
     .on("mouseover", (event, d) => {
       tooltip.style("display", "block")
         .html(`
@@ -199,54 +470,146 @@ function draw(filtered) {
         `);
     })
     .on("mousemove", event => {
-      tooltip
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY + 10) + "px");
+      tooltip.style("left", (event.pageX + 15) + "px")
+             .style("top", (event.pageY + 15) + "px");
     })
-    .on("mouseout", () => tooltip.style("display", "none"))
-    .on("click", (event, d) => {
-      highlightCluster(d, filtered);
-    });
+    .on("mouseout", () => {
+      tooltip.style("display", "none");
+    })
+    .on("click", (event, d) => openModal(d));
 }
 
-function filterBooks() {
-  const filtered = books.filter(b => 
-    (currentGenreFilter === "All" || b.genre === currentGenreFilter) &&
-    (currentGenderFilter === "All" || b.gender === currentGenderFilter)
-  );
-
-  draw(filtered);
-}
-
-function checkImage(url) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    img.src = url;
+function getFilteredBooks() {
+  return books.filter(b => {
+    const matchGenre = (currentGenreFilter === "All" || b.genre === currentGenreFilter);
+    const matchGender = (currentGenderFilter === "All" || b.gender === currentGenderFilter);
+    const matchAuthor = (currentAuthorQuery === "" ||
+      (b.author || "").toLowerCase().includes(currentAuthorQuery));
+    return matchGenre && matchGender && matchAuthor;
   });
 }
 
+function renderPage() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  const filtered = getFilteredBooks();
+  totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  if (pageIndex >= totalPages) {
+    pageIndex = totalPages - 1;
+  }
+  if (pageIndex < 0) pageIndex = 0;
+
+  const start = pageIndex * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  const pageBooks = filtered.slice(start, end);
+
+  if (totalPages === 0) {
+    pageIndicator.textContent = "Page 0 of 0";
+  } else {
+    pageIndicator.textContent = `Page ${pageIndex + 1} of ${totalPages}`;
+  }
+
+  prevPageBtn.disabled = (pageIndex === 0);
+  nextPageBtn.disabled = (pageIndex >= totalPages - 1 || totalPages <= 1);
+
+  draw(pageBooks);
+}
+
+prevPageBtn.addEventListener("click", () => {
+  pageIndex--;
+  renderPage();
+});
+nextPageBtn.addEventListener("click", () => {
+  pageIndex++;
+  renderPage();
+});
+
+genreFilter.addEventListener("click", event => {
+  if (event.target.classList.contains("filter-pill")) {
+    genreFilter.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
+    event.target.classList.add("active");
+    currentGenreFilter = event.target.dataset.value;
+    pageIndex = 0;
+    renderPage();
+  }
+});
+genderFilter.addEventListener("click", event => {
+  if (event.target.classList.contains("filter-pill")) {
+    genderFilter.querySelectorAll(".filter-pill").forEach(p => p.classList.remove("active"));
+    event.target.classList.add("active");
+    currentGenderFilter = event.target.dataset.value;
+    pageIndex = 0;
+    renderPage();
+  }
+});
+
+
+//author search bar
+let allAuthors = [];
+
+authorSearch.addEventListener("input", () => {
+  currentAuthorQuery = authorSearch.value.trim().toLowerCase();
+  pageIndex = 0;
+
+  // autocomplete
+  const matched = allAuthors.filter(a => a.toLowerCase().includes(currentAuthorQuery));
+  const suggestions = matched.slice(0, 8); 
+  updateAutocompleteList(suggestions);
+
+  renderPage();
+});
+
+authorSearch.addEventListener("blur", () => {
+  setTimeout(() => {
+    autocompleteList.style.display = "none";
+  }, 200);
+});
+
+function updateAutocompleteList(suggestions) {
+  if (!suggestions.length || !authorSearch.value.trim()) {
+    autocompleteList.style.display = "none";
+    return;
+  }
+  autocompleteList.innerHTML = "";
+  suggestions.forEach(author => {
+    const div = document.createElement("div");
+    div.className = "autocomplete-item";
+    div.textContent = author;
+    div.addEventListener("click", () => {
+      authorSearch.value = author;
+      currentAuthorQuery = author.toLowerCase();
+      pageIndex = 0;
+      autocompleteList.style.display = "none";
+      renderPage();
+    });
+    autocompleteList.appendChild(div);
+  });
+  autocompleteList.style.display = "block";
+}
+//loading data
 async function loadData() {
-  const data = await d3.json("data/json_output.json");
+  const data = await d3.json("data/json_output_with_covers.json");
+  const sliced = data.slice(0, 2000);
 
-  const rawBooks = data.filter(d => d.grid_point && d.isbn13).slice(0, 2000);
-  const withCovers = await Promise.all(rawBooks.map(async d => {
-    const url = `https://covers.openlibrary.org/b/isbn/${d.isbn13}-M.jpg`;
-    const hasCover = await checkImage(url);
-    return hasCover ? d : null;
-  }));
+  sliced.sort((a, b) => {
+    const tA = (a.title || "").toLowerCase();
+    const tB = (b.title || "").toLowerCase();
+    return tA.localeCompare(tB);
+  });
+  books = sliced;
 
-  books = withCovers.filter(Boolean);
-  
-  genreFilter.querySelector('.filter-pill[data-value="All"]').classList.add('active');
-  genderFilter.querySelector('.filter-pill[data-value="All"]').classList.add('active');
-  
-  draw(books);
+  const authorSet = new Set(books.map(b => b.author).filter(Boolean));
+  allAuthors = [...authorSet].sort(); 
+
+  await preloadCovers(books, CONCURRENCY_LIMIT);
+
+  genreFilter.querySelector('.filter-pill[data-value="All"]').classList.add("active");
+  genderFilter.querySelector('.filter-pill[data-value="All"]').classList.add("active");
+
+  renderPage();
 }
 
 loadData();
 </script>
-
 </body>
 </html>
