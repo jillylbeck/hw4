@@ -657,7 +657,7 @@ async function loadData() {
   const authorSet = new Set(books.map(b => b.author).filter(Boolean));
   allAuthors = [...authorSet].sort(); 
 
-  await preloadCovers(books, CONCURRENCY_LIMIT);
+ //await preloadCovers(books, CONCURRENCY_LIMIT);
 
   genreFilter.querySelector('.filter-pill[data-value="All"]').classList.add("active");
   genderFilter.querySelector('.filter-pill[data-value="All"]').classList.add("active");
